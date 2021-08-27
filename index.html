@@ -22,18 +22,6 @@
       ></a-box>
       <a-camera gps-camera rotation-reader> </a-camera>
     </a-scene>
-    <script>
-      window.addEventListener('load', () => {
-        const el = document.querySelector('[gps-entity-place]');
-        el.addEventListener('gps-entity-place-update-positon', (event) => {
-          if(event.detail.distance < 100) {
-            el.setAttribute('material','color: yellow');
-          } else {
-            el.setAttribute('material','color: red');
-          }
-        });
-      });
-    </script>
   </body>
     
     <body>
@@ -41,7 +29,7 @@
         vr-mode-ui="enabled: false"
         arjs='sourceType: webcam; videoTexture: true; debugUIEnabled: false;'
         renderer='antialias: true; alpha: true'>
-            <a-camera gps-projected-camera gps-camera="minDistance:0.05; maxDistance:0.5" rotation-reader></a-camera>
+            <a-camera gps-projected-camera gps-camera="minDistance:0.5; maxDistance:0.5" rotation-reader></a-camera>
             <a-box gps-projected-entity-place='latitude: 33.81578; longitude: 130.87189' material='color: red' scale='0.5 0.5 0.5'></a-box>
         </a-scene>
     </body>

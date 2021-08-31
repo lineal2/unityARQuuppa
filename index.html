@@ -16,7 +16,11 @@
       <a-scene vr-mode-ui="enabled: false" embedded arjs="sourceType: webcam; debugUIEnabled: false;">
         <a-text value="JMC00210" look-at="[gps-camera]" scale="1 1 1"
             gps-entity-place="latitude: 33.81578; longitude: 130.87189;"></a-text>
+  <!-- Basic plane. -->
+  <a-plane color="#CCC" height="20" width="20"></a-plane>
 
+  <!-- Textured plane parallel to ground. -->
+  <a-plane src="#ground" height="100" width="100" rotation="-90 0 0"></a-plane>
 
         <a-camera gps-camera="minDistance:0.5; maxDistance:0.5" rotation-reader> </a-camera>
     </a-scene> 

@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<title>Quuppa Tag monitor 3D</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<style>
+		body {
+			color: #000;
+			font-family: Monospace;
+			font-size: 13px;
+			text-align: center;
+			font-weight: bold;
+			background-color: #fff;
+			margin: 0px;
+			overflow: hidden;
+		}
+
+		#info {
+			color: #fff;
+			position: absolute;
+			bottom: 0px;
+			width: 100%;
+			padding: 5px;
+		}
+
+		.bwrap {
+			margin: 0.5em 0 0 0
+		}
+
+		#buttons {
+			position: absolute;
+			width: 100%;
+			text-align: center;
+			margin: 1em 0 -4.5em 0;
+			z-index: 1000;
+		}
+
+		button {
+			font-family: georgia;
+			border: 0;
+			background: #000;
+			color: #fff;
+			padding: 0.2em 0.5em;
+			cursor: pointer;
+			border-radius: 3px;
+			z-index: 1000;
+		}
+
+		button:hover {
+			background: #333
+		}
+
+		button.selected {
+			background: #333
+		}
+
+		a {
+			color: red;
+		}
+
+		#LogoSlogan {
+			position: absolute;
+			bottom: 10px;
+			right: 10px;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="buttons" class="bwrap">
+		<button id='1' onclick='controls.topView();'>Top view</button>
+		<button id='2' onclick='controls.sideView();'>Side view</button>
+		<button id="btnar">Start Hello WebXR</button>
+
+	</div>
+
+	<div id="container">
+
+
+
+		<img id="LogoSlogan" src="../images/quuppalogoslogan_white_200px.png">
+	</div>
+	<div id="info">Grid gray = 1m, blue = 10m, left mouse = pan, right mouse = rotate/tilt</div>
+
+	<script type="text/javascript" src="jquery-1.8.3.js"></script>
+	<!-- <script type="text/javascript" src="Three-r55.js"></script> -->
+	<!--<script type="text/javascript" src="TrackballControls.js"></script>-->
+	<!-- <script type="text/javascript" src="DomeControls.js"></script>-->
+	<script type="text/javascript" src="Detector.js"></script>
+	<script type="text/javascript" src="Stats.js"></script>
+	<script type="text/javascript" src="dat.gui.min.js"></script>
+	<script type="text/javascript" src="settings.js"></script>
+
+	<script type="module">
+
+		import * as  THREE from './three/build/three.module.js'
+		import {OrbitControls} from './three/examples/jsm/controls/OrbitControls.js'
+		import {TrackballControls} from './three/examples/jsm/controls/TrackballControls.js'
+		
+		if (!Detector.webgl)
+			Detector.addGetWebGLMessage();
+		var container, stats, camera, controls, scene, renderer;
+		var tagDrawables = {}; // map containing all drawables added to map so far
+		var updateInterval = 30;
+		var controls;
+		var ballSize = 0.2;
+
+		document.getElementById ("btnar").addEventListener ("click", activateXR, false);
+		
+		init();
+		animate();
+		
+		function init() {
+			container = document.getElementById('container');
+			scene = new THREE.Scene();
+
+			var axisHelper = new THREE.AxesHelper();
+			axisHelper.scale.x = 10;
+			axisHelper.scale.y = 10;
+			axisHelper.scale.z = 10;
+			axisHelper.position.z = 0.011;
+			scene.add(axisHelper);
+
+			const canvas = document.createElement("canvas");
+            document.body.appendChild(canvas);
+            const gl = canvas.getContext("webgl", {xrCompatible: true});
+			const webXr = navigator.xr;
+
+
+			camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+			camera.position.z = 7
+			camera.position.y = -8
+
+			renderer = new THREE.WebGLRenderer()
+
+//			camera = new THREE.CombinedCamera( window.innerWidth / 2, window.innerHeight / 2, 70, 1, 1000, - 500, 1000 );
+			//scene.add(camera);
+
+			renderer.setSize(window.innerWidth, window.innerHeight)
+            document.body.appendChild(renderer.domElement)
+
+			//controls = new THREE.TrackballControls(camera, container);
+			//controls = new DomeControls(camera, container);
+
+			controls = new OrbitControls(camera, container)
+
+			var geometry = new THREE.SphereGeometry(ballSize, 25, 25);
+
+
+
+
+
+  			var meterGrid = new THREE.Mesh(new THREE.PlaneGeometry(40, 40, 40,
+					40), new THREE.MeshBasicMaterial({
+				transparent : true,
+				color : 0x606060,
+				opacity : 0.6,
+				wireframe : true
+			}));
+			meterGrid.name = "grid";
+			scene.add(meterGrid);
+
+			var tenMeterGrid = new THREE.Mesh(new THREE.PlaneGeometry(40, 40,
+					4, 4), new THREE.MeshBasicMaterial({
+				transparent : true,
+				color : 0x0000ff,
+				opacity : 0.6,
+				wireframe : true
+			}));
+			tenMeterGrid.name = "grid";
+			tenMeterGrid.position.z = 0.01
+			scene.add(tenMeterGrid); 
+
+
+			// lights
+			var light = new THREE.DirectionalLight(0xffffff);
+			light.position.set(0, 0, 1);
+			scene.add(light);
+
+			//light = new THREE.DirectionalLight(0x004488);
+			//light.position.set(-1, -1, -1);
+			//scene.add(light);
+
+			var light = new THREE.AmbientLight(0x222222);
+			scene.add(light);
+
+			// renderer
+			renderer = new THREE.WebGLRenderer({
+				antialias : true
+			});
+			renderer.setClearColor(0x555555, 1);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+
+			container.appendChild(renderer.domElement);
+
+			stats = new Stats();
+			stats.domElement.style.position = 'absolute';
+			stats.domElement.style.top = '0px';
+			stats.domElement.style.zIndex = 100;
+			container.appendChild(stats.domElement);
+
+			function retrieveTagLocations() {
+				jQuery.ajax({
+					url : "https://172.16.1.21:8443/qpe/getTagPosition" + (Q.settings.maxAge > 0 ? "?maxAge=" + Math.floor(Q.settings.maxAge) : ""),
+					dataType : 'json',
+					async : true,
+					success : function(data, textStatus, jqXHR) {
+						var activeTags = {};
+						for ( var i = 0; i < data.length; i++) {
+							var tag = data[i];
+							var drawable = tagDrawables[tag.id];
+							
+							//filter by pos accuracy
+							if(tag.positionAccuracy > Q.settings.tagPositionAccuracy) {
+								continue;
+							}
+							
+							if (drawable === undefined) {
+								// not showing this yet
+								var material = new THREE.MeshLambertMaterial({
+									color : 0xff0000,
+									shading : THREE.FlatShading
+								});
+								drawable = new THREE.Mesh(geometry, material);
+								drawable.updateMatrix();
+								//drawable.matrixAutoUpdate = false;
+								scene.add(drawable);
+								
+								var shadowGeometry = new THREE.CircleGeometry(ballSize*5, 25);
+								var shadowMaterial = new THREE.MeshLambertMaterial({
+									color : 0x222222,
+									shading : THREE.FlatShading,
+									transparent : true,
+									opacity : 0.6
+								});
+								var shadowDrawable = new THREE.Mesh(shadowGeometry, shadowMaterial);
+								scene.add(shadowDrawable);
+								drawable.shadowDrawable = shadowDrawable;
+							} else {
+								delete tagDrawables[tag.id];
+							}
+							drawable.scale.x = Q.settings.dotScaleFactor;
+							drawable.scale.y = Q.settings.dotScaleFactor;
+							drawable.scale.z = Q.settings.dotScaleFactor;
+							
+							if (Q.settings.useSmoothing && tag.smoothedPositionX !== undefined
+									&& tag.smoothedPositionY !== undefined
+									&& tag.smoothedPositionZ !== undefined) {
+								drawable.position.x = tag.smoothedPositionX;
+								drawable.position.y = tag.smoothedPositionY;
+								drawable.position.z = tag.smoothedPositionZ;
+								drawable.shadowDrawable.position.x = tag.smoothedPositionX;
+								drawable.shadowDrawable.position.y = tag.smoothedPositionY;
+								drawable.shadowDrawable.position.z = 0.015;
+								
+							} else {
+								drawable.position.x = tag.positionX;
+								drawable.position.y = tag.positionY;
+								drawable.position.z = tag.positionZ;
+								drawable.shadowDrawable.position.z = -tag.positionZ + 0.01;
+							}
+							// change shadow size as the dot's z changes
+							var camHeight = 8;
+							var heightFactor = (camHeight - drawable.position.z) / camHeight;
+							drawable.shadowDrawable.scale.x = drawable.shadowDrawable.scale.y = ballSize * Q.settings.dotScaleFactor / heightFactor; //Math.max(1, 1 + tag.positionZ * 0.5 * Q.settings.dotScaleFactor);
+							
+							if (tag.name !== undefined)
+								drawable.name = tag.name;
+							if(tag.color !== undefined)
+								drawable.material.color.set(tag.color);
+							activeTags[tag.id] = drawable;
+						}
+						// now remove the ones taht did not get update
+						for (id in tagDrawables) {
+							scene.remove(tagDrawables[id].shadowDrawable);
+							scene.remove(tagDrawables[id]);
+						}
+
+						tagDrawables = activeTags;
+					},
+					error : function(jqXHR, textStatus, errorThrown) {
+						console.log('error', 'loading tag positions failed, '
+								+ textStatus);
+					}
+				});
+ 				setTimeout(function() {
+					retrieveTagLocations();
+				}, updateInterval);
+			}
+			retrieveTagLocations();
+
+			activateXR();
+
+
+							
+
+/* 			var gui = new dat.GUI();
+			gui.width = 500;
+			var control = gui.add(settings, "smoothing", 0.2, 10).name("Smoothing (0.2=max 10=none)").listen();
+			// fetch current value
+			 jQuery.ajax({
+				url : "../SetLocationSmoothingFactor?",
+				async : true,
+				success : function(data, textStatus, jqXHR) {
+					var val = parseFloat(data);
+					settings.smoothing = val;
+				}
+			});
+			gui.add(settings, "useSmoothing").name("Use smoothing?");
+			
+			// add change listener			
+			control.onFinishChange(function(value) {
+				  console.log("The new value is " + value);
+				  jQuery.ajax({
+						url : "../SetLocationSmoothingFactor?val=" + value,
+						async : true,
+						success : function(data, textStatus, jqXHR) {
+							console.log("response " + data);
+						},
+						error : function(jqXHR, textStatus, errorThrown) {
+							console.log('error', 'loading smoothin value failed: ' + textStatus);
+						}
+					});
+				  }); 
+ */
+ 		}
+
+async function activateXR() {
+  // Add a canvas element and initialize a WebGL context that is compatible with WebXR.
+  const canvas = document.createElement("canvas");
+  document.body.appendChild(canvas);
+  const gl = canvas.getContext("webgl", {xrCompatible: true});
+
+  // Initialize a WebXR session using "immersive-ar".
+const session = await navigator.xr.requestSession("immersive-ar");
+
+const immersiveOK = await navigator.xr.isSessionSupported("immersive-ar");
+if (immersiveOK) {
+  // Create and use an immersive VR session
+  console.log("yesok");
+} else {
+	console.log("notok");
+  // Create an inline session instead, or tell the user about the
+  // incompatibility if inline is required
+}
+session.updateRenderState({
+  baseLayer: new XRWebGLLayer(session, gl)
+});
+
+// A 'local' reference space has a native origin that is located
+// near the viewer's position at the time the session was created.
+const referenceSpace = await session.requestReferenceSpace('local');
+
+// Create a render loop that allows us to draw on the AR view.
+const onXRFrame = (time, frame) => {
+  // Queue up the next draw request.
+  session.requestAnimationFrame(onXRFrame);
+
+  // Bind the graphics framebuffer to the baseLayer's framebuffer
+  gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer)
+
+  // Retrieve the pose of the device.
+  // XRFrame.getViewerPose can return null while the session attempts to establish tracking.
+  const pose = frame.getViewerPose(referenceSpace);
+  if (pose) {
+    // In mobile AR, we only have one view.
+    const view = pose.views[0];
+
+    const viewport = session.renderState.baseLayer.getViewport(view);
+    renderer.setSize(viewport.width, viewport.height)
+
+    // Use the view's transform matrix and projection matrix to configure the THREE.camera.
+    camera.matrix.fromArray(view.transform.matrix)
+    camera.projectionMatrix.fromArray(view.projectionMatrix);
+    camera.updateMatrixWorld(true);
+
+    // Render the scene with THREE.WebGLRenderer.
+    renderer.render(scene, camera)
+  }
+}
+session.requestAnimationFrame(onXRFrame);
+
+
+
+  // To be continued in upcoming steps.
+}
+
+
+		function animate() {
+			requestAnimationFrame(animate);
+			render();
+			controls.update();
+		}
+
+		function render() {
+			renderer.render(scene, camera);
+			stats.update();
+		}
+		
+		(function getProjectInfo() {
+			jQuery.ajax({
+				url : "https://172.16.1.21:8443/qpe/getProjectInfo?version=2",
+				dataType : 'json',
+				async : false,
+				success : function(data, textStatus, jqXHR) {
+					//TODO: implement proper coordinate system handling!
+					data = data.coordinateSystems[0].backgroundImages;
+					for ( var i = 0; i < data.length; i++) {
+						var bgImg = data[i];
+ 						var image = new Image();
+						var callback = function(bgImgData, imageObj, index) {
+							return function() {
+								var texture = new THREE.Texture( imageObj );
+								texture.image = imageObj;
+								texture.needsUpdate = true;
+								var geo = new THREE.PlaneGeometry(1, 1);
+								var material = new THREE.MeshBasicMaterial({map : texture});
+								if(bgImgData.alpha < 1.0) {
+									material.opacity = bgImgData.alpha; 
+									material.transparent = true;
+								}
+								var mesh = new THREE.Mesh(geo, material);
+								mesh.matrixAutoUpdate = false;
+								
+								
+								var transform = new THREE.Matrix4();
+								// rotation
+								transform.rotateZ(bgImgData.rotation / 180.0 * Math.PI);
+								// compute offsets
+								var origoOffsetX = (imageObj.width / 2.0 - bgImgData.origoX) *  bgImgData.metersPerPixelX;
+								var origoOffsetY = (bgImgData.origoY - imageObj.height / 2.0) *  bgImgData.metersPerPixelY;
+								transform.translate(new THREE.Vector3(origoOffsetX, origoOffsetY, index/1000.0));
+								// compute scales
+								var xMeters = imageObj.width * bgImgData.metersPerPixelX;
+								var yMeters = imageObj.height * bgImgData.metersPerPixelY;
+								transform.scale(new THREE.Vector3(xMeters, yMeters, 1));
+								
+								mesh.matrix = transform;
+								scene.add(mesh);
+							};
+						}(bgImg, image, i);
+						image.onload = callback;
+						image.src = bgImg.base64;  // Load it!
+					}
+				},
+				error : function(jqXHR, textStatus, errorThrown) {
+					console.log('error', 'loading tag positions failed, '
+							+ textStatus);
+				}
+			});
+		})(); 
+
+
+
+
+		
+		
+//		function setOrthographic() {
+//			camera.toOrthographic();
+//			document.getElementById('fov').innerHTML = 'Orthographic mode' ;
+//		}
+
+//		function setPerspective() {
+//			camera.toPerspective();
+//			document.getElementById('fov').innerHTML = 'Perspective mode' ;
+//		}
+	</script>
+</body>
+
+</html>
